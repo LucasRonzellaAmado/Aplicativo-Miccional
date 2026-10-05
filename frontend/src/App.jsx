@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
+import Signup from './pages/Signup';
 import Home from './pages/Home';
 import DiarioMiccional from './pages/DiarioMiccional';
 import Hidratacao from './pages/Hidratacao';
@@ -34,6 +35,7 @@ function App() {
         {!isAuthenticated ? (
           <>
             <Route path="/" element={<Login onLogin={handleLogin} />} />
+            <Route path="/signup" element={<Signup onLogin={handleLogin} />} />
             <Route path="*" element={<Navigate to="/" />} />
           </>
         ) : (
