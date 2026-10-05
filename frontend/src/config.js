@@ -1,4 +1,4 @@
 export const API_URL = 
   process.env.NODE_ENV === 'production'
-    ? 'https://seu-backend-railway.up.railway.app'
+    ? 'https://aplicativo-miccional-production.up.railway.app'
     : 'http://localhost:5000';
