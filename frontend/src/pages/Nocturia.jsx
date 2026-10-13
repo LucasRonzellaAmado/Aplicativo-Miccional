@@ -7,7 +7,8 @@ export default function Nocturia() {
   const [form, setForm] = useState({
     horario: new Date().toISOString().slice(0, 16),
     volume: '',
-    teve_perda: false,
+    teve_perda: '',
+    tamanho_perda: 'pequena',
     notas: '',
   });
 
@@ -57,7 +58,8 @@ export default function Nocturia() {
         },
         body: JSON.stringify({
           volume: parseInt(form.volume),
-          had_loss: form.teve_perda,
+          teve_perda: form.teve_perda === 'sim',
+          tamanho_perda: form.teve_perda === 'sim' ? form.tamanho_perda : null,
           notes: form.notas,
           timestamp: form.horario,
         }),
@@ -70,7 +72,8 @@ export default function Nocturia() {
         setForm({
           horario: new Date().toISOString().slice(0, 16),
           volume: '',
-          teve_perda: false,
+          teve_perda: '',
+          tamanho_perda: 'pequena',
           notas: '',
         });
       }
@@ -80,7 +83,7 @@ export default function Nocturia() {
   };
 
   const totalVolume = records.reduce((sum, r) => sum + r.volume, 0);
-  const withLosses = records.filter((r) => r.had_loss).length;
+  const withLosses = records.filter((r) => r.teve_perda).length;
 
   return (
     <div className="page-container">
@@ -90,7 +93,7 @@ export default function Nocturia() {
           <ArrowLeft size={20} />
           Voltar
         </button>
-        <h1>Noctúria</h1>
+        <h1>Durante o Sono</h1>
         <div style={{ width: '100px' }}></div>
       </div>
 
@@ -150,18 +153,55 @@ export default function Nocturia() {
             </div>
           </div>
 
-          <div className="form-group">
-            <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
-              <input
-                type="checkbox"
-                name="teve_perda"
-                checked={form.teve_perda}
-                onChange={handleChange}
-                style={{ marginRight: '10px', width: '18px', height: '18px', cursor: 'pointer' }}
-              />
-              <AlertCircle size={16} style={{ marginRight: '8px', color: '#E85D75' }} />
-              Houve perda involuntária?
-            </label>
+          <div className="questions-section">
+            <h4 style={{ marginTop: '20px', marginBottom: '15px', color: '#E85D75' }}>
+              <AlertCircle size={18} style={{ marginRight: '8px', verticalAlign: 'middle' }} />
+              Informações Adicionais
+            </h4>
+
+            {/* Teve Perda */}
+            <div className="form-group">
+              <label>Houve perda involuntária?</label>
+              <div className="radio-group">
+                <label className="radio-label">
+                  <input
+                    type="radio"
+                    name="teve_perda"
+                    value="sim"
+                    checked={form.teve_perda === 'sim'}
+                    onChange={handleChange}
+                  />
+                  Sim
+                </label>
+                <label className="radio-label">
+                  <input
+                    type="radio"
+                    name="teve_perda"
+                    value="nao"
+                    checked={form.teve_perda === 'nao'}
+                    onChange={handleChange}
+                  />
+                  Não
+                </label>
+              </div>
+
+              {/* Tamanho da Perda - Aparece apenas se teve_perda === 'sim' */}
+              {form.teve_perda === 'sim' && (
+                <div className="form-group" style={{ marginTop: '12px', marginLeft: '20px' }}>
+                  <label htmlFor="tamanho_perda">Tamanho da perda:</label>
+                  <select
+                    id="tamanho_perda"
+                    name="tamanho_perda"
+                    value={form.tamanho_perda}
+                    onChange={handleChange}
+                  >
+                    <option value="pequena">Pequena</option>
+                    <option value="media">Média</option>
+                    <option value="grande">Grande</option>
+                  </select>
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="form-group">
@@ -203,8 +243,7 @@ export default function Nocturia() {
                 </div>
                 <div className="record-details">
                   <div className="record-detail">
-                    <strong>Status</strong>
-                    {record.had_loss ? 'Com perda' : 'Sem perda'}
+                    <strong>Status:</strong> {record.teve_perda ? `Com perda (${record.tamanho_perda})` : 'Sem perda'}
                   </div>
                 </div>
                 {record.notes && <div className="record-notes">Obs: {record.notes}</div>}

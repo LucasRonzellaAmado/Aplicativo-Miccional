@@ -1,21 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Clock, Droplet, Palette, FileText } from 'lucide-react';
+import { ArrowLeft, Clock, Droplet, Palette, FileText, AlertCircle } from 'lucide-react';
+import { API_URL } from '../config';
 
 export default function DiarioMiccional() {
   const navigate = useNavigate();
   const [form, setForm] = useState({
     horario: new Date().toISOString().slice(0, 16),
     volume: '',
-    consistencia: 'normal',
-    cor: 'incolor',
+    consistencia: '',
+    cor: '',
+    urgencia: '',
+    teve_perda: '',
+    tamanho_perda: '',
+    esforco: '',
+    esvaziou_completo: '',
+    gotinhas_pos: '',
     notas: '',
   });
 
   const [records, setRecords] = useState([]);
 
   useEffect(() => {
-    // Buscar registros de micção de hoje
     const fetchRecords = async () => {
       try {
         const response = await fetch(`${API_URL}/api/micturitions`);
@@ -52,7 +58,7 @@ export default function DiarioMiccional() {
     }
 
     try {
-      const response = await fetch('/api/micturitions', {
+      const response = await fetch(`${API_URL}/api/micturitions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -61,6 +67,12 @@ export default function DiarioMiccional() {
           volume: parseInt(form.volume),
           consistency: form.consistencia,
           color: form.cor,
+          urgencia: form.urgencia === 'sim',
+          teve_perda: form.teve_perda === 'sim',
+          tamanho_perda: form.teve_perda === 'sim' ? form.tamanho_perda : null,
+          esforco: form.esforco === 'sim',
+          esvaziou_completo: form.esvaziou_completo === 'sim',
+          gotinhas_pos: form.gotinhas_pos === 'sim',
           notes: form.notas,
           timestamp: form.horario,
         }),
@@ -70,12 +82,17 @@ export default function DiarioMiccional() {
         const newRecord = await response.json();
         setRecords([newRecord, ...records]);
 
-        // Reset form
         setForm({
           horario: new Date().toISOString().slice(0, 16),
           volume: '',
           consistencia: 'normal',
           cor: 'incolor',
+          urgencia: 'nao',
+          teve_perda: 'nao',
+          tamanho_perda: 'pequena',
+          esforco: 'nao',
+          esvaziou_completo: 'nao',
+          gotinhas_pos: 'nao',
           notas: '',
         });
       }
@@ -100,6 +117,7 @@ export default function DiarioMiccional() {
       <div className="form-section">
         <h3>Registrar Micção</h3>
         <form onSubmit={handleSubmit}>
+          {/* Linha 1: Horário e Volume */}
           <div className="form-row">
             <div className="form-group">
               <label htmlFor="horario">
@@ -133,36 +151,168 @@ export default function DiarioMiccional() {
               />
             </div>
           </div>
+          
+          {/* Perguntas: Sim/Não */}
+          <div className="questions-section">
+            <h4 style={{ marginTop: '20px', marginBottom: '15px', color: '#E85D75' }}>
+              <AlertCircle size={18} style={{ marginRight: '8px', verticalAlign: 'middle' }} />
+              Informações Adicionais
+            </h4>
 
-          <div className="form-row">
+            {/* Urgência */}
             <div className="form-group">
-              <label htmlFor="consistencia">Consistência</label>
-              <select
-                id="consistencia"
-                name="consistencia"
-                value={form.consistencia}
-                onChange={handleChange}
-              >
-                <option value="normal">Normal</option>
-                <option value="liquida">Líquida</option>
-                <option value="urgente">Urgente</option>
-              </select>
+              <label>Teve urgência para ir ao banheiro?</label>
+              <div className="radio-group">
+                <label className="radio-label">
+                  <input
+                    type="radio"
+                    name="urgencia"
+                    value="sim"
+                    checked={form.urgencia === 'sim'}
+                    onChange={handleChange}
+                  />
+                  Sim
+                </label>
+                <label className="radio-label">
+                  <input
+                    type="radio"
+                    name="urgencia"
+                    value="nao"
+                    checked={form.urgencia === 'nao'}
+                    onChange={handleChange}
+                  />
+                  Não
+                </label>
+              </div>
             </div>
 
+            {/* Teve Perda */}
             <div className="form-group">
-              <label htmlFor="cor">
-                <Palette size={16} style={{ marginRight: '5px', verticalAlign: 'middle' }} />
-                Cor
-              </label>
-              <select id="cor" name="cor" value={form.cor} onChange={handleChange}>
-                <option value="incolor">Incolor</option>
-                <option value="amarela">Amarela</option>
-                <option value="amarela-forte">Amarela Forte</option>
-                <option value="marrom">Marrom</option>
-              </select>
+              <label>Teve alguma perda?</label>
+              <div className="radio-group">
+                <label className="radio-label">
+                  <input
+                    type="radio"
+                    name="teve_perda"
+                    value="sim"
+                    checked={form.teve_perda === 'sim'}
+                    onChange={handleChange}
+                  />
+                  Sim
+                </label>
+                <label className="radio-label">
+                  <input
+                    type="radio"
+                    name="teve_perda"
+                    value="nao"
+                    checked={form.teve_perda === 'nao'}
+                    onChange={handleChange}
+                  />
+                  Não
+                </label>
+              </div>
+
+              {/* Tamanho da Perda - Aparece apenas se teve_perda === 'sim' */}
+              {form.teve_perda === 'sim' && (
+                <div className="form-group" style={{ marginTop: '12px', marginLeft: '20px' }}>
+                  <label htmlFor="tamanho_perda">Tamanho da perda:</label>
+                  <select
+                    id="tamanho_perda"
+                    name="tamanho_perda"
+                    value={form.tamanho_perda}
+                    onChange={handleChange}
+                  >
+                    <option value="pequena">Pequena</option>
+                    <option value="media">Média</option>
+                    <option value="grande">Grande</option>
+                  </select>
+                </div>
+              )}
+            </div>
+
+            {/* Esforço */}
+            <div className="form-group">
+              <label>Precisou fazer esforço para esvaziar a bexiga?</label>
+              <div className="radio-group">
+                <label className="radio-label">
+                  <input
+                    type="radio"
+                    name="esforco"
+                    value="sim"
+                    checked={form.esforco === 'sim'}
+                    onChange={handleChange}
+                  />
+                  Sim
+                </label>
+                <label className="radio-label">
+                  <input
+                    type="radio"
+                    name="esforco"
+                    value="nao"
+                    checked={form.esforco === 'nao'}
+                    onChange={handleChange}
+                  />
+                  Não
+                </label>
+              </div>
+            </div>
+
+            {/* Esvaziou Completo */}
+            <div className="form-group">
+              <label>Esvaziou completamente?</label>
+              <div className="radio-group">
+                <label className="radio-label">
+                  <input
+                    type="radio"
+                    name="esvaziou_completo"
+                    value="sim"
+                    checked={form.esvaziou_completo === 'sim'}
+                    onChange={handleChange}
+                  />
+                  Sim
+                </label>
+                <label className="radio-label">
+                  <input
+                    type="radio"
+                    name="esvaziou_completo"
+                    value="nao"
+                    checked={form.esvaziou_completo === 'nao'}
+                    onChange={handleChange}
+                  />
+                  Não
+                </label>
+              </div>
+            </div>
+
+            {/* Gotinhas Pós */}
+            <div className="form-group">
+              <label>Depois de fazer xixi, continuou saindo algumas gotinhas de urina?</label>
+              <div className="radio-group">
+                <label className="radio-label">
+                  <input
+                    type="radio"
+                    name="gotinhas_pos"
+                    value="sim"
+                    checked={form.gotinhas_pos === 'sim'}
+                    onChange={handleChange}
+                  />
+                  Sim
+                </label>
+                <label className="radio-label">
+                  <input
+                    type="radio"
+                    name="gotinhas_pos"
+                    value="nao"
+                    checked={form.gotinhas_pos === 'nao'}
+                    onChange={handleChange}
+                  />
+                  Não
+                </label>
+              </div>
             </div>
           </div>
 
+          {/* Notas */}
           <div className="form-group">
             <label htmlFor="notas">
               <FileText size={16} style={{ marginRight: '5px', verticalAlign: 'middle' }} />
@@ -205,12 +355,25 @@ export default function DiarioMiccional() {
                 </div>
                 <div className="record-details">
                   <div className="record-detail">
-                    <strong>Consistência</strong>
-                    {record.consistency}
+                    <strong>Consistência:</strong> {record.consistency}
                   </div>
                   <div className="record-detail">
-                    <strong>Cor</strong>
-                    {record.color}
+                    <strong>Cor:</strong> {record.color}
+                  </div>
+                  <div className="record-detail">
+                    <strong>Urgência:</strong> {record.urgencia ? 'Sim' : 'Não'}
+                  </div>
+                  <div className="record-detail">
+                    <strong>Teve perda:</strong> {record.teve_perda ? `Sim (${record.tamanho_perda})` : 'Não'}
+                  </div>
+                  <div className="record-detail">
+                    <strong>Esforço:</strong> {record.esforco ? 'Sim' : 'Não'}
+                  </div>
+                  <div className="record-detail">
+                    <strong>Esvaziou completo:</strong> {record.esvaziou_completo ? 'Sim' : 'Não'}
+                  </div>
+                  <div className="record-detail">
+                    <strong>Gotinhas pós:</strong> {record.gotinhas_pos ? 'Sim' : 'Não'}
                   </div>
                 </div>
                 {record.notes && <div className="record-notes">📝 {record.notes}</div>}
