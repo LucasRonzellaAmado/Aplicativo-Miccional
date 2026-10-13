@@ -128,52 +128,6 @@ export default function Hidratacao() {
         <div style={{ width: '100px' }}></div>
       </div>
 
-      {/* Progress Section */}
-      <div className="hydration-progress">
-        <div className="progress-label">
-          <span>Ingestão de Líquidos Hoje</span>
-          <span>
-            {(totalLiquids / 1000).toFixed(2)}L / 2.0L
-          </span>
-        </div>
-        <div className="progress-bar">
-          <div
-            className="progress-fill"
-            style={{ width: `${progressPercentage}%` }}
-          >
-            {progressPercentage > 10 && `${Math.round(progressPercentage)}%`}
-          </div>
-        </div>
-
-        {/* Quick Add Buttons */}
-        <div className="quick-add-buttons">
-          <button
-            className="quick-add-button"
-            onClick={() => handleQuickAdd(200)}
-          >
-            + 200ml
-          </button>
-          <button
-            className="quick-add-button"
-            onClick={() => handleQuickAdd(250)}
-          >
-            + 250ml
-          </button>
-          <button
-            className="quick-add-button"
-            onClick={() => handleQuickAdd(500)}
-          >
-            + 500ml
-          </button>
-          <button
-            className="quick-add-button"
-            onClick={() => handleQuickAdd(1000)}
-          >
-            + 1L
-          </button>
-        </div>
-      </div>
-
       {/* Form Section */}
       <div className="form-section">
         <h3>Registrar Bebida</h3>
