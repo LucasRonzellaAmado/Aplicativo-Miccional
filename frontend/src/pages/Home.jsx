@@ -99,7 +99,7 @@ export default function Home({ userName }) {
           style={{ cursor: 'pointer' }}
         >
           <Moon size={40} style={{ color: '#E85D75' }} />
-          <h3>Noctúria</h3>
+          <h3>Durante o Sono</h3>
           <p>Registre os despertares noturnos</p>
         </div>
 
