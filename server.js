@@ -3,104 +3,186 @@ import cors from 'cors';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { v4 as uuidv4 } from 'uuid';
+import { randomBytes, scryptSync, timingSafeEqual } from 'crypto';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const APPS_SCRIPT_URL = process.env.APPS_SCRIPT_URL;
+const API_SECRET = process.env.API_SECRET;
 
-// Middleware
 app.use(cors());
 app.use(express.json());
 app.use(express.static('frontend/dist'));
 
-// Dados em memória (substitua por banco de dados)
-const usuarios = new Map();
-const registros = new Map();
-const profissionais = new Map();
-
-// ROTAS DE AUTENTICAÇÃO
-app.post('/api/auth/signup', (req, res) => {
-  const { email, senha, nome } = req.body;
-  
-  if (usuarios.has(email)) {
-    return res.status(400).json({ erro: 'Email já cadastrado' });
+// ===== PLANILHA (Google Sheets via Apps Script) =====
+async function planilha(payload) {
+  if (!APPS_SCRIPT_URL || !API_SECRET) {
+    throw new Error('APPS_SCRIPT_URL ou API_SECRET não configurados');
   }
 
-  const id = uuidv4();
-  usuarios.set(email, { id, email, senha, nome, data_criacao: new Date() });
-  
-  res.json({ id, email, nome, token: `token_${id}` });
-});
-
-app.post('/api/auth/login', (req, res) => {
-  const { email, senha } = req.body;
-  
-  const usuario = usuarios.get(email);
-  
-  if (!usuario || usuario.senha !== senha) {
-    return res.status(401).json({ erro: 'Email ou senha inválidos' });
-  }
-
-  res.json({ 
-    id: usuario.id, 
-    email, 
-    nome: usuario.nome, 
-    token: `token_${usuario.id}` 
+  const response = await fetch(APPS_SCRIPT_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ ...payload, secret: API_SECRET }),
   });
-});
 
-// ROTAS DE REGISTROS
-app.get('/api/registros/:usuario_id', (req, res) => {
-  const { usuario_id } = req.params;
-  const usuarioRegistros = Array.from(registros.values()).filter(
-    r => r.usuario_id === usuario_id
-  );
-  res.json(usuarioRegistros);
-});
+  const data = await response.json();
+  if (data.erro) throw new Error(data.erro);
+  return data;
+}
 
-app.post('/api/registros', (req, res) => {
-  const { usuario_id, tipo, horario, volume, perdas_urinaras, notas } = req.body;
-  
-  const id = uuidv4();
-  const registro = {
-    id,
-    usuario_id,
-    tipo, // 'miccao' | 'hidratacao' | 'perda'
-    horario: horario || new Date().toISOString(),
-    volume,
-    perdas_urinaras,
-    notas,
-    data_criacao: new Date()
-  };
+// ===== SENHA (hash com scrypt, nativo do Node) =====
+function hashSenha(senha) {
+  const salt = randomBytes(16).toString('hex');
+  const hash = scryptSync(senha, salt, 64).toString('hex');
+  return `${salt}:${hash}`;
+}
 
-  registros.set(id, registro);
-  res.status(201).json(registro);
-});
+function senhaConfere(senha, armazenada) {
+  const [salt, hash] = armazenada.split(':');
+  const tentativa = scryptSync(senha, salt, 64);
+  return timingSafeEqual(tentativa, Buffer.from(hash, 'hex'));
+}
 
-app.delete('/api/registros/:id', (req, res) => {
-  registros.delete(req.params.id);
-  res.json({ sucesso: true });
-});
-
-// ROTAS DE PROFISSIONAL
-app.post('/api/profissional/codigo', (req, res) => {
-  const { usuario_id } = req.body;
-  const codigo = Math.random().toString(36).substring(2, 8).toUpperCase();
-  profissionais.set(codigo, { usuario_id, data_criacao: new Date() });
-  res.json({ codigo });
-});
-
-app.get('/api/profissional/:codigo', (req, res) => {
-  const prof = profissionais.get(req.params.codigo);
-  if (!prof) {
-    return res.status(404).json({ erro: 'Código inválido' });
+// ===== MIDDLEWARE DE AUTENTICAÇÃO =====
+// Espera o header: Authorization: Bearer token_<id>
+function exigeLogin(req, res, next) {
+  const match = (req.headers.authorization || '').match(/^Bearer token_(.+)$/);
+  if (!match) {
+    return res.status(401).json({ erro: 'Não autenticado' });
   }
-  res.json(prof);
+  req.usuario_id = match[1];
+  next();
+}
+
+// ===== ROTAS DE AUTENTICAÇÃO =====
+app.post('/api/auth/signup', async (req, res) => {
+  try {
+    const { email, senha, nome } = req.body;
+    if (!email || !senha) {
+      return res.status(400).json({ erro: 'Email e senha são obrigatórios' });
+    }
+
+    const usuarios = await planilha({ action: 'list', table: 'usuarios' });
+    if (usuarios.some((u) => u.email === email)) {
+      return res.status(400).json({ erro: 'Email já cadastrado' });
+    }
+
+    const id = uuidv4();
+    await planilha({
+      action: 'insert',
+      table: 'usuarios',
+      data: {
+        id,
+        email,
+        nome,
+        senha_hash: hashSenha(senha),
+        data_criacao: new Date().toISOString(),
+      },
+    });
+
+    res.json({ id, email, nome, token: `token_${id}` });
+  } catch (err) {
+    res.status(500).json({ erro: err.message });
+  }
 });
 
-// SAÚDE DA API
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { email, senha } = req.body;
+    const usuarios = await planilha({ action: 'list', table: 'usuarios' });
+    const usuario = usuarios.find((u) => u.email === email);
+
+    if (!usuario || !senhaConfere(senha, String(usuario.senha_hash))) {
+      return res.status(401).json({ erro: 'Email ou senha inválidos' });
+    }
+
+    res.json({
+      id: usuario.id,
+      email,
+      nome: usuario.nome,
+      token: `token_${usuario.id}`,
+    });
+  } catch (err) {
+    res.status(500).json({ erro: err.message });
+  }
+});
+
+// ===== MICTURIÇÕES (Diário Miccional) =====
+app.get('/api/micturitions', exigeLogin, async (req, res) => {
+  try {
+    const lista = await planilha({ action: 'list', table: 'micturicoes' });
+    res.json(lista.filter((r) => String(r.usuario_id) === req.usuario_id));
+  } catch (err) {
+    res.status(500).json({ erro: err.message });
+  }
+});
+
+app.post('/api/micturitions', exigeLogin, async (req, res) => {
+  try {
+    const {
+      volume, consistency, color, urgencia, teve_perda, tamanho_perda,
+      esforco, esvaziou_completo, gotinhas_pos, notes, timestamp,
+    } = req.body;
+
+    const registro = {
+      id: uuidv4(),
+      usuario_id: req.usuario_id,
+      volume: parseInt(volume),
+      consistencia: consistency,
+      cor: color,
+      urgencia,
+      teve_perda,
+      tamanho_perda: teve_perda ? tamanho_perda : '',
+      esforco,
+      esvaziou_completo,
+      gotinhas_pos,
+      notas: notes || '',
+      timestamp: timestamp || new Date().toISOString(),
+    };
+
+    await planilha({ action: 'insert', table: 'micturicoes', data: registro });
+    res.status(201).json(registro);
+  } catch (err) {
+    res.status(500).json({ erro: err.message });
+  }
+});
+
+// ===== NOCTÚRIA (Durante o Sono) =====
+app.get('/api/nocturia', exigeLogin, async (req, res) => {
+  try {
+    const lista = await planilha({ action: 'list', table: 'nocturia' });
+    res.json(lista.filter((r) => String(r.usuario_id) === req.usuario_id));
+  } catch (err) {
+    res.status(500).json({ erro: err.message });
+  }
+});
+
+app.post('/api/nocturia', exigeLogin, async (req, res) => {
+  try {
+    const { volume, teve_perda, tamanho_perda, notes, timestamp } = req.body;
+
+    const registro = {
+      id: uuidv4(),
+      usuario_id: req.usuario_id,
+      volume: parseInt(volume),
+      teve_perda,
+      tamanho_perda: teve_perda ? tamanho_perda : '',
+      notas: notes || '',
+      timestamp: timestamp || new Date().toISOString(),
+    };
+
+    await planilha({ action: 'insert', table: 'nocturia', data: registro });
+    res.status(201).json(registro);
+  } catch (err) {
+    res.status(500).json({ erro: err.message });
+  }
+});
+
+// ===== SAÚDE DA API =====
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date() });
 });
@@ -112,5 +194,4 @@ app.get('*', (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`🚀 Servidor rodando em http://localhost:${PORT}`);
-  console.log(`📱 Acesse http://localhost:${PORT}`);
 });
