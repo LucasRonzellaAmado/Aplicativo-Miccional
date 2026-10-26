@@ -182,6 +182,36 @@ app.post('/api/nocturia', exigeLogin, async (req, res) => {
   }
 });
 
+// ===== HIDRATAÇÃO =====
+app.get('/api/hydrations', exigeLogin, async (req, res) => {
+  try {
+    const lista = await planilha({ action: 'list', table: 'hidratacao' });
+    res.json(lista.filter((r) => String(r.usuario_id) === req.usuario_id));
+  } catch (err) {
+    res.status(500).json({ erro: err.message });
+  }
+});
+
+app.post('/api/hydrations', exigeLogin, async (req, res) => {
+  try {
+    const { volume, tipo, notes, timestamp } = req.body;
+
+    const registro = {
+      id: uuidv4(),
+      usuario_id: req.usuario_id,
+      volume: parseInt(volume),
+      tipo,
+      notas: notes || '',
+      timestamp: timestamp || new Date().toISOString(),
+    };
+
+    await planilha({ action: 'insert', table: 'hidratacao', data: registro });
+    res.status(201).json(registro);
+  } catch (err) {
+    res.status(500).json({ erro: err.message });
+  }
+});
+
 // ===== SAÚDE DA API =====
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date() });

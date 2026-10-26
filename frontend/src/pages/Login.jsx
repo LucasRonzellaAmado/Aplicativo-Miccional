@@ -3,6 +3,8 @@ import { useNavigate, Link } from 'react-router-dom'
 import { Droplet, Mail, Lock } from 'lucide-react'
 import '../styles/LoginNew.css'
 import { API_URL } from '../config';
+import LogoFam from '../components/LogoFam';
+import { salvarSessao } from '../auth'
 
 export default function Login({ onLogin }) {
   const [email, setEmail] = useState('')
@@ -25,6 +27,7 @@ export default function Login({ onLogin }) {
 
       if (response.ok) {
         const usuario = await response.json()
+        salvarSessao(usuario)
         onLogin(usuario.nome)
         navigate('/home')
       } else {
@@ -39,6 +42,7 @@ export default function Login({ onLogin }) {
 
   return (
     <div className="auth-container-new">
+      <LogoFam altura={48} style={{ position: 'absolute', top: '20px', left: '24px', zIndex: 10 }} />
       <div className="auth-content">
         {/* Left Side - Illustration */}
         <div className="auth-left">
