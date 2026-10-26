@@ -1,11 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Clock, Droplet, AlertCircle } from 'lucide-react';
+import { API_URL } from '../config';
+import { authHeaders } from '../auth';
+import Orientacao from '../components/Orientacao';
+
+// Data local no formato AAAA-MM-DD (evita o problema do fuso UTC)
+const diaLocal = (valor) => {
+  const d = new Date(valor);
+  return isNaN(d) ? '' : d.toLocaleDateString('en-CA');
+};
+
+// Data e hora local no formato do input datetime-local
+const agoraLocal = () => {
+  const d = new Date();
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0, 16);
+};
 
 export default function Nocturia() {
   const navigate = useNavigate();
   const [form, setForm] = useState({
-    horario: new Date().toISOString().slice(0, 16),
+    horario: agoraLocal(),
     volume: '',
     teve_perda: '',
     tamanho_perda: 'pequena',
@@ -17,13 +33,13 @@ export default function Nocturia() {
   useEffect(() => {
     const fetchRecords = async () => {
       try {
-        const response = await fetch('/api/nocturia');
+        const response = await fetch(`${API_URL}/api/nocturia`, {
+          headers: authHeaders(),
+        });
         const data = await response.json();
 
-        const today = new Date().toISOString().split('T')[0];
-        const todayRecords = data.filter(
-          (r) => new Date(r.timestamp).toISOString().split('T')[0] === today
-        );
+        const hoje = diaLocal(new Date());
+        const todayRecords = data.filter((r) => diaLocal(r.timestamp) === hoje);
 
         setRecords(todayRecords.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)));
       } catch (error) {
@@ -35,10 +51,10 @@ export default function Nocturia() {
   }, []);
 
   const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
+    const { name, value } = e.target;
     setForm((prev) => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value,
+      [name]: value,
     }));
   };
 
@@ -51,11 +67,9 @@ export default function Nocturia() {
     }
 
     try {
-      const response = await fetch('/api/nocturia', {
+      const response = await fetch(`${API_URL}/api/nocturia`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: authHeaders(),
         body: JSON.stringify({
           volume: parseInt(form.volume),
           teve_perda: form.teve_perda === 'sim',
@@ -70,7 +84,7 @@ export default function Nocturia() {
         setRecords([newRecord, ...records]);
 
         setForm({
-          horario: new Date().toISOString().slice(0, 16),
+          horario: agoraLocal(),
           volume: '',
           teve_perda: '',
           tamanho_perda: 'pequena',
@@ -96,6 +110,33 @@ export default function Nocturia() {
         <h1>Durante o Sono</h1>
         <div style={{ width: '100px' }}></div>
       </div>
+
+      {/* Orientação da página */}
+      <Orientacao titulo="Registre os despertares noturnos" imagem="/ilustracao-sono.webp">
+        <p>
+          Informe os episódios em que você acordar durante o período de sono para urinar. Registre o
+          horário e, quando possível, o volume eliminado. Informe também se houve perda involuntária
+          de urina.
+        </p>
+        <p><strong>Sempre que solicitado, registre também:</strong></p>
+        <ul>
+          <li>O horário em que foi dormir.</li>
+          <li>O horário em que acordou definitivamente.</li>
+          <li>Os horários dos despertares para urinar.</li>
+          <li>O volume de cada micção noturna, quando medido.</li>
+          <li>Se houve perda involuntária de urina.</li>
+        </ul>
+        <p>
+          <strong>Exemplo ilustrativo:</strong> dormiu às 22h30, acordou para urinar às 02h15 e
+          acordou definitivamente às 06h30. Este é apenas um exemplo; os horários e a quantidade de
+          despertares variam de pessoa para pessoa.
+        </p>
+        <p>
+          <strong>Observação importante:</strong> acordar durante a noite não significa
+          necessariamente ter noctúria. O termo é usado quando a pessoa desperta do sono para urinar
+          e depois volta a dormir.
+        </p>
+      </Orientacao>
 
       {/* Summary Cards */}
       <div className="daily-stats">
@@ -243,10 +284,11 @@ export default function Nocturia() {
                 </div>
                 <div className="record-details">
                   <div className="record-detail">
-                    <strong>Status:</strong> {record.teve_perda ? `Com perda (${record.tamanho_perda})` : 'Sem perda'}
+                    <strong>Status:</strong>{' '}
+                    {record.teve_perda ? `Com perda (${record.tamanho_perda})` : 'Sem perda'}
                   </div>
                 </div>
-                {record.notes && <div className="record-notes">Obs: {record.notes}</div>}
+                {record.notas && <div className="record-notes">Obs: {record.notas}</div>}
               </div>
             ))}
           </div>

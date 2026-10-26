@@ -8,3 +8,47 @@
   font-size: var(--font-size-xl);
   font-weight: 600;
 }
+
+/* Quadro de orientação com ilustração à direita (texto à esquerda) */
+.orientacao {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.orientacao-texto {
+  flex: 1;
+  min-width: 0;
+}
+
+.orientacao-ilustracao {
+  flex: 0 0 260px;
+  background-image: url("/ilustracoes.webp");
+  background-repeat: no-repeat;
+  border-radius: 12px;
+  mix-blend-mode: multiply;
+}
+
+.orientacao-ilustracao.completa {
+  flex-basis: 420px;
+}
+
+img.orientacao-ilustracao {
+  width: 260px;
+  height: auto;
+}
+
+@media (max-width: 768px) {
+  .orientacao {
+    flex-direction: column-reverse;
+  }
+  .orientacao-ilustracao {
+    flex-basis: auto;
+    width: 70%;
+    max-width: 240px;
+  }
+  .orientacao-ilustracao.completa {
+    width: 100%;
+    max-width: none;
+  }
+}

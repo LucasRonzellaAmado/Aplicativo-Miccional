@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import { Droplet, Mail, Lock, User } from 'lucide-react'
 import '../styles/LoginNew.css'
 import { API_URL } from '../config';
+import LogoFam from '../components/LogoFam';
 
 export default function Signup({ onLogin }) {
   const [nome, setNome] = useState('')
@@ -53,6 +54,7 @@ export default function Signup({ onLogin }) {
 
   return (
     <div className="auth-container-new">
+      <LogoFam altura={48} style={{ position: 'absolute', top: '20px', left: '24px', zIndex: 10 }} />
       <div className="auth-content">
         {/* Left Side - Illustration */}
         <div className="auth-left">

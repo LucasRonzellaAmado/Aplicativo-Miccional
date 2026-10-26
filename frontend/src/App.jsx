@@ -6,24 +6,29 @@ import Home from './pages/Home';
 import DiarioMiccional from './pages/DiarioMiccional';
 import Hidratacao from './pages/Hidratacao';
 import Historico from './pages/Historico';
+import Nocturia from './pages/Nocturia';
 import Header from './components/Header';
+import { getSessao, limparSessao } from './auth';
 import './App.css';
 import './styles/Header.css';
 import './styles/Pages.css';
-import Nocturia from './pages/Nocturia';
 
 function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [userName, setUserName] = useState('');
+  // Lê a sessão salva no localStorage, para continuar logado depois do F5
+  const sessaoInicial = getSessao();
+
+  const [isAuthenticated, setIsAuthenticated] = useState(Boolean(sessaoInicial?.token));
+  const [userName, setUserName] = useState(sessaoInicial?.nome || '');
 
   const handleLogin = (name) => {
     // Se name for um objeto, extrai só o nome
-    const userName = typeof name === 'string' ? name : name.nome || name.email || 'Usuária';
-    setUserName(userName);
+    const nomeUsuario = typeof name === 'string' ? name : name.nome || name.email || 'Usuária';
+    setUserName(nomeUsuario);
     setIsAuthenticated(true);
   };
 
   const handleLogout = () => {
+    limparSessao();
     setIsAuthenticated(false);
     setUserName('');
   };
@@ -45,7 +50,7 @@ function App() {
             <Route path="/diario" element={<DiarioMiccional />} />
             <Route path="/hidratacao" element={<Hidratacao />} />
             <Route path="/nocturia" element={<Nocturia />} />
-            <Route path="/historico" element={<Historico />} />
+            <Route path="/historico" element={<Historico userName={userName} />} />
             <Route path="*" element={<Navigate to="/home" />} />
           </>
         )}

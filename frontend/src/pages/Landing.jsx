@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { Droplet, CheckCircle, Share2, Lock } from 'lucide-react'
 import './Landing.css'
+import LogoFam from '../components/LogoFam'
 
 export default function Landing() {
   const navigate = useNavigate()
@@ -11,6 +12,7 @@ export default function Landing() {
       <header className="landing-header">
         <div className="header-content">
           <div className="logo">
+            <LogoFam altura={40} style={{ marginRight: '12px' }} />
             <Droplet className="logo-icon" />
             <span>Diário Miccional</span>
           </div>

@@ -1,18 +1,31 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Clock, Droplet, Palette, FileText, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Clock, Droplet, FileText, AlertCircle } from 'lucide-react';
 import { API_URL } from '../config';
+import { authHeaders } from '../auth';
+import Orientacao from '../components/Orientacao';
+
+// Data local no formato AAAA-MM-DD (evita o problema do fuso UTC)
+const diaLocal = (valor) => {
+  const d = new Date(valor);
+  return isNaN(d) ? '' : d.toLocaleDateString('en-CA');
+};
+
+// Data e hora local no formato do input datetime-local
+const agoraLocal = () => {
+  const d = new Date();
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0, 16);
+};
 
 export default function DiarioMiccional() {
   const navigate = useNavigate();
   const [form, setForm] = useState({
-    horario: new Date().toISOString().slice(0, 16),
+    horario: agoraLocal(),
     volume: '',
-    consistencia: '',
-    cor: '',
     urgencia: '',
     teve_perda: '',
-    tamanho_perda: '',
+    tamanho_perda: 'pequena',
     esforco: '',
     esvaziou_completo: '',
     gotinhas_pos: '',
@@ -24,13 +37,13 @@ export default function DiarioMiccional() {
   useEffect(() => {
     const fetchRecords = async () => {
       try {
-        const response = await fetch(`${API_URL}/api/micturitions`);
+        const response = await fetch(`${API_URL}/api/micturitions`, {
+          headers: authHeaders(),
+        });
         const data = await response.json();
 
-        const today = new Date().toISOString().split('T')[0];
-        const todayRecords = data.filter(
-          (r) => new Date(r.timestamp).toISOString().split('T')[0] === today
-        );
+        const hoje = diaLocal(new Date());
+        const todayRecords = data.filter((r) => diaLocal(r.timestamp) === hoje);
 
         setRecords(todayRecords.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)));
       } catch (error) {
@@ -60,13 +73,9 @@ export default function DiarioMiccional() {
     try {
       const response = await fetch(`${API_URL}/api/micturitions`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: authHeaders(),
         body: JSON.stringify({
           volume: parseInt(form.volume),
-          consistency: form.consistencia,
-          color: form.cor,
           urgencia: form.urgencia === 'sim',
           teve_perda: form.teve_perda === 'sim',
           tamanho_perda: form.teve_perda === 'sim' ? form.tamanho_perda : null,
@@ -83,16 +92,14 @@ export default function DiarioMiccional() {
         setRecords([newRecord, ...records]);
 
         setForm({
-          horario: new Date().toISOString().slice(0, 16),
+          horario: agoraLocal(),
           volume: '',
-          consistencia: 'normal',
-          cor: 'incolor',
-          urgencia: 'nao',
-          teve_perda: 'nao',
+          urgencia: '',
+          teve_perda: '',
           tamanho_perda: 'pequena',
-          esforco: 'nao',
-          esvaziou_completo: 'nao',
-          gotinhas_pos: 'nao',
+          esforco: '',
+          esvaziou_completo: '',
+          gotinhas_pos: '',
           notas: '',
         });
       }
@@ -112,6 +119,27 @@ export default function DiarioMiccional() {
         <h1>Diário Miccional</h1>
         <div style={{ width: '100px' }}></div>
       </div>
+
+      {/* Orientação da página */}
+      <Orientacao titulo="Registre suas micções" imagem="/ilustracao-diario.webp">
+        <p>
+          Anote cada vez que urinar durante o período orientado pelo profissional de saúde. Sempre
+          que possível, meça o volume de urina e preencha as informações adicionais.
+        </p>
+        <p><strong>O que significa cada campo?</strong></p>
+        <ul>
+          <li><strong>Horário:</strong> momento em que você urinou.</li>
+          <li><strong>Volume (ml):</strong> quantidade de urina eliminada, medida em mililitros.</li>
+          <li><strong>Urgência:</strong> vontade súbita e difícil de adiar de urinar.</li>
+          <li><strong>Perda de urina:</strong> escape involuntário de urina antes de chegar ao banheiro ou em outra situação.</li>
+          <li><strong>Esforço para esvaziar a bexiga:</strong> necessidade de fazer força para conseguir urinar.</li>
+        </ul>
+        <p>
+          <strong>Exemplo ilustrativo</strong> (registre o que aconteceu com você, sem tentar
+          reproduzir estes valores): Horário 10h30 · Volume 250 ml · Urgência: Não · Perda de
+          urina: Não.
+        </p>
+      </Orientacao>
 
       {/* Form Section */}
       <div className="form-section">
@@ -151,7 +179,7 @@ export default function DiarioMiccional() {
               />
             </div>
           </div>
-          
+
           {/* Perguntas: Sim/Não */}
           <div className="questions-section">
             <h4 style={{ marginTop: '20px', marginBottom: '15px', color: '#E85D75' }}>
@@ -259,7 +287,10 @@ export default function DiarioMiccional() {
 
             {/* Esvaziou Completo */}
             <div className="form-group">
-              <label>Esvaziou completamente?</label>
+              <label>Você sentiu que esvaziou completamente a bexiga?</label>
+              <p style={{ margin: '0 0 8px', fontSize: '13px', color: '#888' }}>
+                Pense se, ao terminar de urinar, você teve a sensação de que ainda havia urina na bexiga.
+              </p>
               <div className="radio-group">
                 <label className="radio-label">
                   <input
@@ -286,7 +317,10 @@ export default function DiarioMiccional() {
 
             {/* Gotinhas Pós */}
             <div className="form-group">
-              <label>Depois de fazer xixi, continuou saindo algumas gotinhas de urina?</label>
+              <label>Após terminar de urinar, saíram algumas gotinhas de urina?</label>
+              <p style={{ margin: '0 0 8px', fontSize: '13px', color: '#888' }}>
+                Considere se houve saída de pequenas gotas logo após terminar a micção.
+              </p>
               <div className="radio-group">
                 <label className="radio-label">
                   <input
@@ -355,12 +389,6 @@ export default function DiarioMiccional() {
                 </div>
                 <div className="record-details">
                   <div className="record-detail">
-                    <strong>Consistência:</strong> {record.consistency}
-                  </div>
-                  <div className="record-detail">
-                    <strong>Cor:</strong> {record.color}
-                  </div>
-                  <div className="record-detail">
                     <strong>Urgência:</strong> {record.urgencia ? 'Sim' : 'Não'}
                   </div>
                   <div className="record-detail">
@@ -376,7 +404,7 @@ export default function DiarioMiccional() {
                     <strong>Gotinhas pós:</strong> {record.gotinhas_pos ? 'Sim' : 'Não'}
                   </div>
                 </div>
-                {record.notes && <div className="record-notes">📝 {record.notes}</div>}
+                {record.notas && <div className="record-notes">📝 {record.notas}</div>}
               </div>
             ))}
           </div>
@@ -384,4 +412,4 @@ export default function DiarioMiccional() {
       </div>
     </div>
   );
-}
+}
