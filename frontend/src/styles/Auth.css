@@ -305,3 +305,8 @@
     gap: 12px;
   }
 }
+/* Espaço para o logo da FAM no canto superior esquerdo */
+.auth-container-new {
+  position: relative;
+  padding-top: 90px;
+}

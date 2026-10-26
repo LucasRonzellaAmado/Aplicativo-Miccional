@@ -2,6 +2,7 @@ import React from 'react';
 import { LogOut, Home } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import '../styles/Header.css';
+import LogoFam from './LogoFam';
 
 export default function Header({ userName, onLogout }) {
   const navigate = useNavigate();
@@ -13,6 +14,7 @@ export default function Header({ userName, onLogout }) {
 
   return (
     <header className="header">
+      <LogoFam cor="branco" altura={36} className="header-logo-fam" />
       <div className="header-container">
         <div className="header-left">
           <button

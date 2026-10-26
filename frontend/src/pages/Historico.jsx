@@ -1,15 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Calendar, Filter } from 'lucide-react';
+import { ArrowLeft, Calendar, FileDown } from 'lucide-react';
+import { API_URL } from '../config';
+import { authHeaders } from '../auth';
+import Orientacao from '../components/Orientacao';
+import { montarRelatorio, tresDias } from '../relatorio';
 
-export default function Historico() {
+// Data local no formato AAAA-MM-DD (evita o problema do fuso UTC)
+const diaLocal = (valor) => {
+  const d = new Date(valor);
+  return isNaN(d) ? '' : d.toLocaleDateString('en-CA');
+};
+
+export default function Historico({ userName }) {
   const navigate = useNavigate();
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState(diaLocal(new Date()));
   const [filterType, setFilterType] = useState('todos');
   const [records, setRecords] = useState([]);
   const [dailyStats, setDailyStats] = useState({
     micturitions: 0,
-    liquids: 0,
+    liquids: '0.00',
+    nocturia: 0,
     losses: 0,
   });
 
@@ -19,77 +30,101 @@ export default function Historico() {
 
   const fetchHistoryData = async () => {
     try {
-      const [micResponse, hydResponse, lossResponse] = await Promise.all([
-        fetch(`${API_URL}/api/micturitions`),
-        fetch('/api/hydrations'),
-        fetch('/api/losses'),
+      const [micResponse, hydResponse, noctResponse] = await Promise.all([
+        fetch(`${API_URL}/api/micturitions`, { headers: authHeaders() }),
+        fetch(`${API_URL}/api/hydrations`, { headers: authHeaders() }),
+        fetch(`${API_URL}/api/nocturia`, { headers: authHeaders() }),
       ]);
 
       const micData = await micResponse.json();
       const hydData = await hydResponse.json();
-      const lossData = await lossResponse.json();
+      const noctData = await noctResponse.json();
 
-      // Filtrar por data selecionada
-      const mic = micData.filter(
-        (m) => new Date(m.timestamp).toISOString().split('T')[0] === selectedDate
-      );
-      const hyd = hydData.filter(
-        (h) => new Date(h.timestamp).toISOString().split('T')[0] === selectedDate
-      );
-      const loss = lossData.filter(
-        (l) => new Date(l.timestamp).toISOString().split('T')[0] === selectedDate
-      );
+      const doDia = (lista) => lista.filter((r) => diaLocal(r.timestamp) === selectedDate);
 
-      // Montar timeline combinada
-      let combined = [];
+      const mic = doDia(micData);
+      const hyd = doDia(hydData);
+      const noct = doDia(noctData);
 
-      mic.forEach((m) => {
-        combined.push({
+      // Monta a timeline combinada
+      let combined = [
+        ...mic.map((m) => ({
           type: 'micturition',
           timestamp: m.timestamp,
           volume: m.volume,
-          consistency: m.consistency,
-          color: m.color,
-          notes: m.notes,
-        });
-      });
-
-      hyd.forEach((h) => {
-        combined.push({
+          teve_perda: m.teve_perda,
+          tamanho_perda: m.tamanho_perda,
+          notas: m.notas,
+        })),
+        ...hyd.map((h) => ({
           type: 'hydration',
           timestamp: h.timestamp,
           volume: h.volume,
-          liquidType: h.type,
-          notes: h.notes,
-        });
-      });
+          tipo: h.tipo,
+          notas: h.notas,
+        })),
+        ...noct.map((n) => ({
+          type: 'nocturia',
+          timestamp: n.timestamp,
+          volume: n.volume,
+          teve_perda: n.teve_perda,
+          tamanho_perda: n.tamanho_perda,
+          notas: n.notas,
+        })),
+      ];
 
-      loss.forEach((l) => {
-        combined.push({
-          type: 'loss',
-          timestamp: l.timestamp,
-          notes: l.notes,
-        });
-      });
-
-      // Ordenar por hora
       combined.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
-      // Aplicar filtro
-      if (filterType !== 'todos') {
-        combined = combined.filter((r) => r.type.includes(filterType));
+      // Aplica o filtro
+      let filtrados = combined;
+      if (filterType === 'loss') {
+        filtrados = combined.filter((r) => r.teve_perda === true);
+      } else if (filterType !== 'todos') {
+        filtrados = combined.filter((r) => r.type === filterType);
       }
+      setRecords(filtrados);
 
-      setRecords(combined);
-
-      // Calcular estatísticas
+      // Estatísticas do dia selecionado
+      const totalLiquidos = hyd.reduce((sum, h) => sum + Number(h.volume), 0);
       setDailyStats({
         micturitions: mic.length,
-        liquids: (hyd.reduce((sum, h) => sum + h.volume, 0) / 1000).toFixed(2),
-        losses: loss.length,
+        liquids: (totalLiquidos / 1000).toFixed(2),
+        nocturia: noct.length,
+        losses: [...mic, ...noct].filter((r) => r.teve_perda === true).length,
       });
     } catch (error) {
       console.error('Erro ao buscar histórico:', error);
+    }
+  };
+
+  const gerarRelatorio = async () => {
+    // Abre a aba já no clique para não ser bloqueada como pop-up
+    const janela = window.open('', '_blank');
+    if (!janela) {
+      alert('Permita pop-ups para gerar o relatório.');
+      return;
+    }
+    janela.document.write('<p style="font-family:sans-serif">Gerando relatório...</p>');
+    try {
+      const [micData, hydData, noctData] = await Promise.all(
+        ['micturitions', 'hydrations', 'nocturia'].map((rota) =>
+          fetch(`${API_URL}/api/${rota}`, { headers: authHeaders() }).then((r) => r.json())
+        )
+      );
+      const html = montarRelatorio({
+        nome: userName,
+        dias: tresDias(selectedDate),
+        micData,
+        hydData,
+        noctData,
+      });
+      janela.document.open();
+      janela.document.write(html);
+      janela.document.close();
+    } catch (error) {
+      console.error('Erro ao gerar relatório:', error);
+      janela.close();
+      alert('Não foi possível gerar o relatório. Tente novamente.');
     }
   };
 
@@ -99,8 +134,8 @@ export default function Historico() {
         return 'Micção';
       case 'hydration':
         return 'Hidratação';
-      case 'loss':
-        return 'Perda';
+      case 'nocturia':
+        return 'Noctúria';
       default:
         return 'Registro';
     }
@@ -109,11 +144,15 @@ export default function Historico() {
   const getRecordDescription = (record) => {
     switch (record.type) {
       case 'micturition':
-        return `${record.volume}ml - ${record.consistency} (Cor: ${record.color})`;
+        return `${record.volume}ml${
+          record.teve_perda ? ` · Perda ${record.tamanho_perda}` : ''
+        }`;
       case 'hydration':
-        return `${record.volume}ml de ${record.liquidType}`;
-      case 'loss':
-        return 'Perda registrada';
+        return `${record.volume}ml de ${record.tipo}`;
+      case 'nocturia':
+        return `${record.volume}ml${
+          record.teve_perda ? ` · Perda ${record.tamanho_perda}` : ''
+        }`;
       default:
         return '';
     }
@@ -130,6 +169,20 @@ export default function Historico() {
         <h1>Histórico</h1>
         <div style={{ width: '100px' }}></div>
       </div>
+
+      {/* Orientação da página */}
+      <Orientacao titulo="Consulte seus registros" imagem="/ilustracao-historico.webp">
+        <p>
+          Nesta página, você pode visualizar os registros por data e consultar as informações sobre
+          micções, ingestão de líquidos, noctúria e perdas de urina. Utilize os filtros para ver os
+          tipos de registro desejados. O resumo diário apresenta os dados daquela data, e a linha do
+          tempo permite acompanhar os acontecimentos ao longo do dia.
+        </p>
+        <p>
+          Se o profissional de saúde solicitar, utilize as informações do diário durante a consulta.
+          Os registros auxiliam a avaliação, mas não substituem a análise clínica.
+        </p>
+      </Orientacao>
 
       {/* Filters Section */}
       <div className="filters-section">
@@ -169,12 +222,31 @@ export default function Historico() {
             Líquidos
           </button>
           <button
+            className={`filter-button ${filterType === 'nocturia' ? 'active' : ''}`}
+            onClick={() => setFilterType('nocturia')}
+          >
+            Noctúria
+          </button>
+          <button
             className={`filter-button ${filterType === 'loss' ? 'active' : ''}`}
             onClick={() => setFilterType('loss')}
           >
             Perdas
           </button>
         </div>
+      </div>
+
+      {/* Relatório de 3 dias */}
+      <div className="questions-section" style={{ textAlign: 'center' }}>
+        <p style={{ marginTop: 0, color: '#444', fontSize: '14px' }}>
+          Gere um PDF com os 3 dias que terminam em{' '}
+          <strong>{new Date(`${selectedDate}T00:00:00`).toLocaleDateString('pt-BR')}</strong> para
+          enviar ao profissional de saúde.
+        </p>
+        <button className="submit-button" onClick={gerarRelatorio}>
+          <FileDown size={18} style={{ marginRight: '6px', verticalAlign: 'middle' }} />
+          Gerar relatório de 3 dias (PDF)
+        </button>
       </div>
 
       {/* Daily Summary */}
@@ -188,6 +260,10 @@ export default function Historico() {
           <div className="summary-stat">
             <div className="summary-stat-number">{dailyStats.liquids}L</div>
             <div className="summary-stat-label">Líquidos</div>
+          </div>
+          <div className="summary-stat">
+            <div className="summary-stat-number">{dailyStats.nocturia}</div>
+            <div className="summary-stat-label">Noctúria</div>
           </div>
           <div className="summary-stat">
             <div className="summary-stat-number">{dailyStats.losses}</div>
@@ -219,9 +295,7 @@ export default function Historico() {
                 <div style={{ marginTop: '10px', color: '#555', fontSize: '14px' }}>
                   {getRecordDescription(record)}
                 </div>
-                {record.notes && (
-                  <div className="record-notes">📝 {record.notes}</div>
-                )}
+                {record.notas && <div className="record-notes">📝 {record.notas}</div>}
               </div>
             ))}
           </div>

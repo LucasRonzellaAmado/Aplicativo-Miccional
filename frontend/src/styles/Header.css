@@ -147,3 +147,27 @@
     padding: 6px 10px;
   }
 }
+/* Logo da FAM no canto esquerdo, fora do container para não deslocar o título */
+.header-logo-fam {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+/* Em telas estreitas não há espaço lateral: o logo volta para o fluxo, antes do conteúdo */
+@media (max-width: 1440px) {
+  .header {
+    display: flex;
+    align-items: center;
+    padding-left: 16px;
+  }
+  .header-logo-fam {
+    position: static;
+    transform: none;
+    flex-shrink: 0;
+  }
+  .header-container {
+    flex: 1;
+  }
+}
