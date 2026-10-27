@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Clock, Droplet, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Clock, Droplet, AlertCircle, Moon, Sunrise } from 'lucide-react';
 import { API_URL } from '../config';
 import { authHeaders } from '../auth';
 import Orientacao from '../components/Orientacao';
@@ -18,6 +18,16 @@ const agoraLocal = () => {
   return d.toISOString().slice(0, 16);
 };
 
+const formatarHora = (valor) =>
+  new Date(valor).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+// Duração entre dormir e acordar, no formato "7h30"
+const duracaoSono = (dormir, acordar) => {
+  const minutos = Math.round((new Date(acordar) - new Date(dormir)) / 60000);
+  if (!(minutos > 0)) return '—';
+  return `${Math.floor(minutos / 60)}h${String(minutos % 60).padStart(2, '0')}`;
+};
+
 export default function Nocturia() {
   const navigate = useNavigate();
   const [form, setForm] = useState({
@@ -29,6 +39,26 @@ export default function Nocturia() {
   });
 
   const [records, setRecords] = useState([]);
+  const [sono, setSono] = useState({ hora_dormir: '', hora_acordar: '', notas: '' });
+  const [periodos, setPeriodos] = useState([]);
+
+  useEffect(() => {
+    const fetchPeriodos = async () => {
+      try {
+        const response = await fetch(`${API_URL}/api/sono`, { headers: authHeaders() });
+        if (!response.ok) return;
+        const data = await response.json();
+        // Mostra as noites mais recentes primeiro (últimas 3)
+        setPeriodos(
+          data.sort((a, b) => new Date(b.hora_acordar) - new Date(a.hora_acordar)).slice(0, 3)
+        );
+      } catch (error) {
+        console.error('Erro ao buscar períodos de sono:', error);
+      }
+    };
+
+    fetchPeriodos();
+  }, []);
 
   useEffect(() => {
     const fetchRecords = async () => {
@@ -96,6 +126,38 @@ export default function Nocturia() {
     }
   };
 
+  const handleSonoChange = (e) => {
+    const { name, value } = e.target;
+    setSono((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSonoSubmit = async (e) => {
+    e.preventDefault();
+
+    if (new Date(sono.hora_acordar) <= new Date(sono.hora_dormir)) {
+      alert('O horário de acordar deve ser depois do horário de dormir');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/api/sono`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ ...sono, notes: sono.notas }),
+      });
+
+      if (response.ok) {
+        const novo = await response.json();
+        setPeriodos([novo, ...periodos]);
+        setSono({ hora_dormir: '', hora_acordar: '', notas: '' });
+      } else {
+        alert('Não foi possível salvar o período de sono.');
+      }
+    } catch (error) {
+      console.error('Erro ao salvar período de sono:', error);
+    }
+  };
+
   const totalVolume = records.reduce((sum, r) => sum + r.volume, 0);
   const withLosses = records.filter((r) => r.teve_perda).length;
 
@@ -137,6 +199,81 @@ export default function Nocturia() {
           e depois volta a dormir.
         </p>
       </Orientacao>
+
+      {/* Período de sono */}
+      <div className="form-section">
+        <h3>Registrar Período de Sono</h3>
+        <form onSubmit={handleSonoSubmit}>
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="hora_dormir">
+                <Moon size={16} style={{ marginRight: '5px', verticalAlign: 'middle' }} />
+                Horário em que foi dormir
+              </label>
+              <input
+                type="datetime-local"
+                id="hora_dormir"
+                name="hora_dormir"
+                value={sono.hora_dormir}
+                onChange={handleSonoChange}
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="hora_acordar">
+                <Sunrise size={16} style={{ marginRight: '5px', verticalAlign: 'middle' }} />
+                Horário em que acordou definitivamente
+              </label>
+              <input
+                type="datetime-local"
+                id="hora_acordar"
+                name="hora_acordar"
+                value={sono.hora_acordar}
+                onChange={handleSonoChange}
+                required
+              />
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="notas_sono">Observações (Opcional)</label>
+            <textarea
+              id="notas_sono"
+              name="notas"
+              value={sono.notas}
+              onChange={handleSonoChange}
+              placeholder="Ex: demorou para pegar no sono, acordou cansada..."
+            ></textarea>
+          </div>
+
+          <button type="submit" className="submit-button">
+            Registrar Período de Sono
+          </button>
+        </form>
+
+        {periodos.length > 0 && (
+          <div className="record-list" style={{ marginTop: '20px' }}>
+            {periodos.map((p) => (
+              <div key={p.id} className="record-item">
+                <div className="record-header">
+                  <span className="record-time">
+                    {formatarHora(p.hora_dormir)} → {formatarHora(p.hora_acordar)}
+                  </span>
+                  <span className="record-volume">{duracaoSono(p.hora_dormir, p.hora_acordar)}</span>
+                </div>
+                <div className="record-details">
+                  <div className="record-detail">
+                    <strong>Noite de:</strong>{' '}
+                    {new Date(p.hora_dormir).toLocaleDateString('pt-BR')}
+                  </div>
+                </div>
+                {p.notas && <div className="record-notes">Obs: {p.notas}</div>}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Summary Cards */}
       <div className="daily-stats">

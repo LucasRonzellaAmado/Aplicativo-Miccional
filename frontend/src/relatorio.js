@@ -41,7 +41,12 @@ export const tresDias = (dataFinal) =>
     return d.toLocaleDateString('en-CA');
   });
 
-export function montarRelatorio({ nome, dias, micData, hydData, noctData }) {
+const duracao = (dormir, acordar) => {
+  const min = Math.round((new Date(acordar) - new Date(dormir)) / 60000);
+  return min > 0 ? `${Math.floor(min / 60)}h${String(min % 60).padStart(2, '0')}` : '—';
+};
+
+export function montarRelatorio({ nome, dias, micData, hydData, noctData, sonoData = [] }) {
   const doDia = (lista, dia) => ordenar(lista.filter((r) => diaLocal(r.timestamp) === dia));
 
   const secoesDias = dias
@@ -86,6 +91,17 @@ export function montarRelatorio({ nome, dias, micData, hydData, noctData }) {
         )}
 
         <h3>Durante o sono</h3>
+        ${tabela(
+          ['Foi dormir', 'Acordou', 'Duração', 'Notas'],
+          sonoData
+            .filter((s) => diaLocal(s.hora_acordar) === dia)
+            .map((s) => [
+              `${dataBR(diaLocal(s.hora_dormir))} ${hora(s.hora_dormir)}`,
+              hora(s.hora_acordar),
+              duracao(s.hora_dormir, s.hora_acordar),
+              esc(s.notas),
+            ])
+        )}
         ${tabela(
           ['Hora', 'Volume', 'Perda', 'Notas'],
           noct.map((r) => [hora(r.timestamp), r.volume ? `${esc(r.volume)} mL` : '—', perda(r), esc(r.notas)])
