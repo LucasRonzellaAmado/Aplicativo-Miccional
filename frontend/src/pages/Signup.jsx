@@ -4,6 +4,7 @@ import { Droplet, Mail, Lock, User } from 'lucide-react'
 import '../styles/LoginNew.css'
 import { API_URL } from '../config';
 import LogoFam from '../components/LogoFam';
+import { salvarSessao } from '../auth'
 
 export default function Signup({ onLogin }) {
   const [nome, setNome] = useState('')
@@ -39,6 +40,8 @@ export default function Signup({ onLogin }) {
 
       if (response.ok) {
         const usuario = await response.json()
+        // Guarda o token, senão as rotas protegidas respondem 401
+        salvarSessao(usuario)
         onLogin(usuario.nome)
         navigate('/home')
       } else {
