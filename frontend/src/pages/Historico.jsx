@@ -111,12 +111,17 @@ export default function Historico({ userName }) {
           fetch(`${API_URL}/api/${rota}`, { headers: authHeaders() }).then((r) => r.json())
         )
       );
+      // Período de sono é opcional: se a aba ainda não existir na planilha, segue sem ele
+      const sonoData = await fetch(`${API_URL}/api/sono`, { headers: authHeaders() })
+        .then((r) => (r.ok ? r.json() : []))
+        .catch(() => []);
       const html = montarRelatorio({
         nome: userName,
         dias: tresDias(selectedDate),
         micData,
         hydData,
         noctData,
+        sonoData,
       });
       janela.document.open();
       janela.document.write(html);

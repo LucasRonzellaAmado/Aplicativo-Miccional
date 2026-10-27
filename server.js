@@ -182,6 +182,40 @@ app.post('/api/nocturia', exigeLogin, async (req, res) => {
   }
 });
 
+// ===== PERÍODO DE SONO (horário de dormir e de acordar) =====
+app.get('/api/sono', exigeLogin, async (req, res) => {
+  try {
+    const lista = await planilha({ action: 'list', table: 'sono' });
+    res.json(lista.filter((r) => String(r.usuario_id) === req.usuario_id));
+  } catch (err) {
+    res.status(500).json({ erro: err.message });
+  }
+});
+
+app.post('/api/sono', exigeLogin, async (req, res) => {
+  try {
+    const { hora_dormir, hora_acordar, notes } = req.body;
+    if (!hora_dormir || !hora_acordar) {
+      return res.status(400).json({ erro: 'Informe o horário de dormir e de acordar' });
+    }
+
+    const registro = {
+      id: uuidv4(),
+      usuario_id: req.usuario_id,
+      hora_dormir,
+      hora_acordar,
+      notas: notes || '',
+      // A noite é contada no dia em que a pessoa acordou
+      timestamp: hora_acordar,
+    };
+
+    await planilha({ action: 'insert', table: 'sono', data: registro });
+    res.status(201).json(registro);
+  } catch (err) {
+    res.status(500).json({ erro: err.message });
+  }
+});
+
 // ===== HIDRATAÇÃO =====
 app.get('/api/hydrations', exigeLogin, async (req, res) => {
   try {
