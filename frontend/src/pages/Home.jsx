@@ -34,16 +34,10 @@ const COMO_PREENCHER = [
       'Registre as micções e os líquidos consumidos durante o dia e a noite. Anote também os despertares noturnos para urinar e as demais informações solicitadas no diário.',
   },
   {
-    Icone: CalendarCheck,
-    titulo: 'Escolha dias mais tranquilos',
-    texto:
-      'Se possível, escolha três dias consecutivos em que sua rotina esteja mais tranquila, com poucos compromissos, para conseguir fazer os registros com atenção.',
-  },
-  {
     Icone: FileEdit,
     titulo: 'Registre ao longo do dia',
     texto:
-      'Procure preencher cada informação assim que possível. Mantenha seus hábitos habituais de alimentação e ingestão de líquidos, salvo orientação diferente do profissional de saúde.',
+      'Procure preencher cada informação assim que possível. Mantenha seus hábitos de alimentação e ingestão de líquidos.',
   },
 ];
 

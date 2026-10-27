@@ -8,8 +8,8 @@ import Orientacao from '../components/Orientacao';
 const LIQUID_TYPES = [
   'Água',
   'Café',
-  'Chá — xícara',
-  'Chá — caneca',
+  'Chá',
+  'Bebida Alcoólica',
   'Leite',
   'Suco natural',
   'Suco industrializado',
@@ -322,4 +322,4 @@ export default function Hidratacao() {
       </div>
     </div>
   );
-}
+}

@@ -130,7 +130,7 @@ export default function DiarioMiccional() {
         <ul>
           <li><strong>Horário:</strong> momento em que você urinou.</li>
           <li><strong>Volume (ml):</strong> quantidade de urina eliminada, medida em mililitros.</li>
-          <li><strong>Urgência:</strong> vontade súbita e difícil de adiar de urinar.</li>
+          <li><strong>Urgência:</strong> vontade súbita de urinar e difícil de adiar.</li>
           <li><strong>Perda de urina:</strong> escape involuntário de urina antes de chegar ao banheiro ou em outra situação.</li>
           <li><strong>Esforço para esvaziar a bexiga:</strong> necessidade de fazer força para conseguir urinar.</li>
         </ul>
@@ -412,4 +412,4 @@ export default function DiarioMiccional() {
       </div>
     </div>
   );
-}
+}
